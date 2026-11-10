@@ -4,6 +4,7 @@
 // @version      1.5.3
 // @description  收藏页勾选笔记，用官方接口批量归入指定专辑
 // @match        https://www.xiaohongshu.com/*
+// @license      MIT
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
