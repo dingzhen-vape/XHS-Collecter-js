@@ -1,7 +1,6 @@
 node_modules/
 _build/
 .pnpm-store/
-xhs-collect.readable.user.js
 *.log
 
 # 调试用的探针脚本，不发布

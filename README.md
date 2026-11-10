@@ -51,7 +51,7 @@
 
 ```
 .
-├── xhs-collect.user.js   构建产物（压缩），发给用户的就是这个
+├── xhs-collect.user.js   构建产物（未压缩），安装的就是这个
 ├── build.mjs             构建脚本
 ├── package.json
 └── src
@@ -68,11 +68,12 @@
 
 ```bash
 npm install
-npm run build            # 生成压缩版 xhs-collect.user.js
-npm run build:readable   # 生成未压缩版，方便阅读
+npm run build
 ```
 
 想改功能只改 `src/main-src.js`，然后重新 `npm run build`。不要直接改 `xhs-collect.user.js`，那是产物。
+
+产物不做压缩：打包只是为了把签名模块和 Buffer 一起塞进单文件，压缩会让人没法对着源码读，没必要。
 
 ## 已知限制
 

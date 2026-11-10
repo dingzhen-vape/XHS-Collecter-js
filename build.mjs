@@ -4,7 +4,6 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
-const readable = process.argv.includes("--readable");
 
 // esbuild 的 JS API 会以管道方式拉起子进程，某些受限环境下会 EPERM。
 // 这里改用 CLI + stdio:inherit，行为一致且更稳。
@@ -24,17 +23,8 @@ const META = [
   "",
 ].join("\n");
 
-const NOTE = [
-  "/* ============================================================",
-  "   \u53ef\u8bfb\u7248\uff1a\u903b\u8f91\u4e0e xhs-collect.user.js \u76f8\u540c\uff0c\u53ea\u662f\u6ca1\u538b\u7f29\u3002",
-  "   \u4e09\u6bb5\u5185\u5bb9\uff1aBuffer \u517c\u5bb9\u5c42 / XYS \u7b7e\u540d\u6a21\u5757 / \u811a\u672c\u81ea\u8eab\u903b\u8f91",
-  "   \u81ea\u8eab\u903b\u8f91\u7684\u6e90\u7801\u5728 src/main-src.js",
-  "   ============================================================ */",
-  "",
-  "",
-].join("\n");
-
-const outfile = readable ? "xhs-collect.readable.user.js" : "xhs-collect.user.js";
+// 只出一份未压缩的产物：人可读，能直接对到 src/ 的行。
+const outfile = "xhs-collect.user.js";
 
 const args = [
   ESBUILD_CLI,
@@ -48,10 +38,9 @@ const args = [
   "--alias:node:crypto=" + resolve(ROOT, "src/crypto-shim.js"),
   "--inject:" + resolve(ROOT, "src/inject-buffer.js"),
 ];
-if (!readable) args.push("--minify");
 
 execFileSync(process.execPath, args, { stdio: "inherit", cwd: ROOT });
 
 const body = readFileSync(resolve(ROOT, outfile), "utf8");
-writeFileSync(resolve(ROOT, outfile), META + (readable ? NOTE : "") + body);
+writeFileSync(resolve(ROOT, outfile), META + body);
 console.log(outfile + "  " + (META.length + body.length) + " bytes");
