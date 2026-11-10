@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         小红书收藏批量归类
 // @namespace    local.xhs.picker
-// @version      1.4.0
+// @version      1.5.0
 // @description  收藏页勾选笔记，用官方接口批量归入指定专辑
 // @match        https://www.xiaohongshu.com/*
 // @grant        none
@@ -2760,12 +2760,15 @@
     ".xhs-board-tag{position:absolute;left:8px;top:8px;z-index:8;background:#fff;color:#111;border-radius:10px;",
     "padding:1px 8px;font-size:11px;line-height:18px;font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.2);",
     "max-width:calc(100% - 100px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}",
-    ".xhs-star{position:absolute;right:8px;bottom:34px;width:26px;height:26px;border-radius:50%;box-sizing:border-box;",
-    "background:rgba(255,255,255,.94);color:#ff2e4d;z-index:9;cursor:grab;display:flex;align-items:center;",
-    "justify-content:center;font-size:14px;line-height:1;box-shadow:0 1px 6px rgba(0,0,0,.25);",
-    "user-select:none;touch-action:none;transition:transform .15s,background .15s}",
-    ".xhs-star:hover{transform:scale(1.1)}",
-    ".xhs-star.on{background:#ff2e4d;color:#fff}"
+    ".xhs-star{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;",
+    "width:22px;height:22px;margin-right:6px;flex:0 0 auto;border-radius:50%;color:#ff2e4d;background:transparent;",
+    "cursor:grab;user-select:none;touch-action:none;transition:transform .15s,color .15s}",
+    ".xhs-star svg{width:17px;height:17px;display:block}",
+    ".xhs-star:hover{transform:scale(1.12)}",
+    ".xhs-star.on{transform:scale(1.2)}",
+    ".xhs-star.abs{position:absolute;right:8px;bottom:34px;z-index:9;background:rgba(255,255,255,.94);",
+    "box-shadow:0 1px 6px rgba(0,0,0,.25)}",
+    ".xhs-star.abs.on{background:#ff2e4d;color:#fff}"
   ].join("");
   function injectCardCss() {
     if (document.getElementById("xhs-pick-css")) return;
@@ -2808,29 +2811,32 @@
     paint(id);
     ui.renderCount();
   }
+  var STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.8l2.62 5.31 5.86.85-4.24 4.13 1 5.84L12 17.18l-5.24 2.75 1-5.84L3.52 9.96l5.86-.85z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>';
   function decorate(card) {
     const id = noteIdOf(card);
     if (!id) return;
     state.cards.set(id, card);
-    if (card.querySelector(":scope > .xhs-pick")) {
-      paint(id);
-      return;
+    if (!card.querySelector(":scope > .xhs-pick")) {
+      if (getComputedStyle(card).position === "static") card.style.position = "relative";
+      const box = document.createElement("div");
+      box.className = "xhs-pick";
+      box.title = "\u52FE\u9009\u8FD9\u7BC7\u7B14\u8BB0";
+      box.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggle(noteIdOf(card) || id);
+      }, true);
+      box.addEventListener("mousedown", (e) => e.stopPropagation(), true);
+      card.appendChild(box);
     }
-    if (getComputedStyle(card).position === "static") card.style.position = "relative";
-    const box = document.createElement("div");
-    box.className = "xhs-pick";
-    box.title = "\u52FE\u9009\u8FD9\u7BC7\u7B14\u8BB0";
-    box.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      toggle(id);
-    }, true);
-    box.addEventListener("mousedown", (e) => e.stopPropagation(), true);
-    card.appendChild(box);
+    if (!card.querySelector(".xhs-star")) addStar(card);
+    paint(id);
+  }
+  function addStar(card) {
     const star = document.createElement("div");
     star.className = "xhs-star";
     star.title = "\u6309\u4F4F\u5411\u53F3\u62D6\uFF0C\u9009\u4E00\u4E2A\u4E13\u8F91\u653E\u8FDB\u53BB";
-    star.textContent = "\u2605";
+    star.innerHTML = STAR_SVG;
     star.addEventListener("mousedown", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -2839,15 +2845,26 @@
       e.preventDefault();
       e.stopPropagation();
     }, true);
-    star.addEventListener("pointerdown", (e) => onStarDown(e, star, id), true);
-    card.appendChild(star);
-    paint(id);
+    star.addEventListener("pointerdown", (e) => onStarDown(e, star, card), true);
+    const like = card.querySelector(".like-wrapper") || card.querySelector("[class*='like-wrapper']");
+    if (like && like.parentElement) {
+      like.parentElement.insertBefore(star, like);
+    } else {
+      star.classList.add("abs");
+      card.appendChild(star);
+    }
   }
   function scan() {
     if (favContext()) state.favSeen = true;
     if (!state.favSeen) return;
     const cards = document.querySelectorAll(CFG.CARD);
     for (let i = 0; i < cards.length; i++) decorate(cards[i]);
+    if (cards.length && !state.autoTagged) {
+      state.autoTagged = true;
+      setTimeout(() => {
+        loadBoardMap();
+      }, 600);
+    }
   }
   function favContext() {
     const sp = new URLSearchParams(location.search);
@@ -2924,8 +2941,9 @@
     const el = quick.root.elementFromPoint(x, y);
     return el && el.closest ? el.closest("[data-bid]") : null;
   }
-  function onStarDown(e, star, noteId) {
-    if (e.button !== 0 || state.running) return;
+  function onStarDown(e, star, card) {
+    const noteId = noteIdOf(card);
+    if (!noteId || e.button !== 0 || state.running) return;
     e.preventDefault();
     e.stopPropagation();
     if (!state.boards.length) {
@@ -3136,10 +3154,6 @@
       elPanel.classList.remove("hide");
       elTab.classList.remove("show");
       setPos(pos.x, pos.y);
-      if (!state.mapLoaded && !state.tagging && !state.autoTagged) {
-        state.autoTagged = true;
-        loadBoardMap(3);
-      }
     }
     function draggable(handle, onTap) {
       let sx = 0, sy = 0, ox = 0, oy = 0, active = false, moved = false;

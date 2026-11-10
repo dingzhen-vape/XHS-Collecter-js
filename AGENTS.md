@@ -82,7 +82,9 @@ signMainApi(method, uri, cookies, params, payload, timestamp, signLocation)
 - 勾选框是 `div.xhs-pick` 不是 `<input>`：原生控件被站点全局样式污染，封面又被 `<a>` 覆盖。用 CSS `::after` 画勾，click 捕获阶段 `stopPropagation` 防跳转
 - 侧边栏在 Shadow DOM（`#xhs-picker-host`）里，隔离站点样式；拖动只绑 `.hd`，否则会吞掉下拉框和按钮
 - 专辑标签 `div.xhs-board-tag` 贴在卡片左上角，数据来自 `loadBoardMap()`：逐个专辑翻 `board/note` 直到 `has_more === false`，拼出 `noteId -> [专辑名]`。翻页上限 `CFG.BOARD_MAX_PAGES`，自动扫描只读 3 页，按钮读全
-- 星标 `div.xhs-star` 在卡片右下角。按住向右拖 12px 弹出专辑列表（另一个 Shadow DOM：`#xhs-quick-host`），松手命中哪项就归哪。**没有**用 `setPointerCapture`，否则 `elementFromPoint` 命中不到菜单项；改成 document 级 pointermove + `shadowRoot.elementFromPoint()` 自己做命中测试
+- 星标 `div.xhs-star` 插在 `.like-wrapper` 前面（点赞数左边），跟站点 footer 同一行；找不到 `.like-wrapper` 才退回绝对定位（`.xhs-star.abs`，右下角）。注意星标必须是 footer 的兄弟节点，别塞进 `.like-wrapper` 里面
+- 按住星标向右拖 12px 弹出专辑列表（另一个 Shadow DOM：`#xhs-quick-host`），松手命中哪项就归哪。**没有**用 `setPointerCapture`，否则 `elementFromPoint` 命中不到菜单项；改成 document 级 pointermove + `shadowRoot.elementFromPoint()` 自己做命中测试
+- `scan()` 里第一张卡片出现后 600ms 自动跑一次 `loadBoardMap()`（`state.autoTagged` 保证每次页面加载只跑一次），不用等展开面板
 
 ## 改动的标准流程
 
