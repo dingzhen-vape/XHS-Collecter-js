@@ -206,8 +206,9 @@ const CARD_CSS = [
   ".xhs-pick.on::after{transform:rotate(-45deg) scale(1)}",
   ".xhs-note-done{box-shadow:inset 0 0 0 2px #ff2e4d !important}",  ".xhs-board-tag{position:absolute;left:8px;top:8px;z-index:8;background:#fff;color:#111;border-radius:10px;",  "padding:1px 8px;font-size:11px;line-height:18px;font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.2);",  "max-width:calc(100% - 100px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}",
   ".xhs-star{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;",
-  "width:20px;height:20px;margin:0 2px 0 0;flex:0 0 auto;border-radius:50%;color:#ff2e4d;background:transparent;",
-  "cursor:grab;user-select:none;touch-action:none;transition:transform .15s,color .15s}",
+  "width:20px;height:20px;margin:0 10px 0 0;flex:0 0 auto;border-radius:50%;color:#ff2e4d;background:transparent;",
+  "position:relative;z-index:3;cursor:grab;user-select:none;touch-action:none;",
+  "transition:transform .15s,color .15s}",
   ".xhs-star svg{width:15px;height:15px;display:block}",
   ".xhs-star:hover{transform:scale(1.12)}",
   ".xhs-star.on{transform:scale(1.2)}",
@@ -303,6 +304,7 @@ function addStar(card) {
     }
     star.classList.add("inl");
     like.insertBefore(star, like.firstChild);
+    if (getComputedStyle(like).position === "static") like.style.position = "relative";
   } else {
     star.classList.add("abs");
     card.appendChild(star);

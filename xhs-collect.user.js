@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         小红书收藏批量归类
 // @namespace    local.xhs.picker
-// @version      1.5.2
+// @version      1.5.3
 // @description  收藏页勾选笔记，用官方接口批量归入指定专辑
 // @match        https://www.xiaohongshu.com/*
 // @grant        none
@@ -2761,8 +2761,9 @@
     "padding:1px 8px;font-size:11px;line-height:18px;font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.2);",
     "max-width:calc(100% - 100px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}",
     ".xhs-star{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;",
-    "width:20px;height:20px;margin:0 2px 0 0;flex:0 0 auto;border-radius:50%;color:#ff2e4d;background:transparent;",
-    "cursor:grab;user-select:none;touch-action:none;transition:transform .15s,color .15s}",
+    "width:20px;height:20px;margin:0 10px 0 0;flex:0 0 auto;border-radius:50%;color:#ff2e4d;background:transparent;",
+    "position:relative;z-index:3;cursor:grab;user-select:none;touch-action:none;",
+    "transition:transform .15s,color .15s}",
     ".xhs-star svg{width:15px;height:15px;display:block}",
     ".xhs-star:hover{transform:scale(1.12)}",
     ".xhs-star.on{transform:scale(1.2)}",
@@ -2854,6 +2855,7 @@
       }
       star.classList.add("inl");
       like.insertBefore(star, like.firstChild);
+      if (getComputedStyle(like).position === "static") like.style.position = "relative";
     } else {
       star.classList.add("abs");
       card.appendChild(star);
