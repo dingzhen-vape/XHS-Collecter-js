@@ -5,7 +5,10 @@
   "type": "module",
   "description": "小红书收藏页批量归类油猴脚本",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node build.mjs",
+    "check": "node scripts/check.mjs",
+    "check:sign": "node scripts/verify-sign.mjs",
+    "verify": "node scripts/check.mjs && node scripts/verify-sign.mjs"
   },
   "dependencies": {
     "@esbuild/win32-x64": "^0.28.2",

@@ -54,6 +54,10 @@
 ├── xhs-collect.user.js   构建产物（未压缩），安装的就是这个
 ├── build.mjs             构建脚本
 ├── package.json
+├── scripts
+│   ├── check.mjs          构建 + 元数据自检
+│   ├── verify-sign.mjs    签名回归
+│   └── golden.json        签名基准（钉死随机源后的五个头）
 └── src
     ├── main-src.js       脚本自身的逻辑：勾选框、侧边栏、拖动、批量任务
     ├── signing.js        XYS 签名实现（来自 @lucasygu/redbook）
@@ -74,6 +78,12 @@ npm run build
 想改功能只改 `src/main-src.js`，然后重新 `npm run build`。不要直接改 `xhs-collect.user.js`，那是产物。
 
 产物不做压缩：打包只是为了把签名模块和 Buffer 一起塞进单文件，压缩会让人没法对着源码读，没必要。
+
+改代码前先读 [`AGENTS.md`](./AGENTS.md)：里面写了接口清单、签名调用约定、页面 DOM 事实、改动流程和踩过的坑。
+
+```bash
+npm run verify     # 构建 + 元数据检查 + 签名回归，改完代码先跑这个
+```
 
 ## 已知限制
 

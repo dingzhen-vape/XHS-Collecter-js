@@ -1,0 +1,25 @@
+{
+  "note": "固定随机源(x-s 种子/Date.now/a1)后的签名产物。对不上说明签名逻辑变了，也可能只是随机种子变了。",
+  "fixed": {
+    "nowMs": 1794300364100,
+    "a1": "1a0b88c1d2e3f405162738495a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d",
+    "uid": "61ae26060000000002020aad",
+    "location": "https://www.xiaohongshu.com/user/profile/61ae26060000000002020aad?tab=fav&subTab=note"
+  },
+  "cases": {
+    "GET board/user": {
+      "x-s": "XYS_2UQhPsHCH0c1PUhMHjIj2erjwjQhyoPTqBPT49pjHjIj2eHjwjQgynEDJ74AHjIj2ePjwjQTJdPIPAZlg94aGLTl80p0LMYH+fYk8pm9qemk8rPFqrh6+nTawepnP04x2bS34LWUy0pT+FDF8rQg+L4D4pQ+zsRrLgS8+npsySq3G9QSL0bD208/nnbnppme+/Qy+FT+aBbn/9pF+nzaagbDzFSLJAmY2S8D8MzpG9MwPLpE4FqUGA8nnBb6qn8+c9EIqMQCLDkcpnbLP9l6JrT/Jfznnfl0yLLIaSQQyAmOarEaLSz+qd86pbkopnuAtM+VyAL38MGI4S8GNUHVHdWFH0ijJ9Qx8n+FHdF=",
+      "x-s-common": "2UQAPsHC+aIjqArjwjHjNsQhPsHCH0rjNsQhPaHCH0c1PUhMHjIj2eHjwjQgynEDJ74AHjIj2ePjwjQhyoPTqBPT49pjHjIj2ecjwjHFN0W9N0ZjNsQh+aHCH0bYPBHhwBPl8eQSP9GFPeLl+0H7PAWFw/pY+fH7GAYDwnLI80bYPfHAGAzD+nL9804YwBHEGAmDHjIj2eGjwjHjNsQh+UHCHjHVHdWhH0ija/PhqDYD87+xJ7mdag8Sq9zn494QcUT6aLpPJLQy+nLApd4G/B4BprShLA+jqg4bqD8S8gYDPBp3Jf+m2DMBnnEl4BYQyrkSzB8+zrTM4bQQPFTAnnRUpFYc4r4UGSGILeSg8DSkN9pgGA8SngbF2pbmqbmQPA4Sy9Ma+SbPtApQy/8A8BE68p+fqpSHqg4VPdbF+LHIzBRQ2sTczFzkN7+n4BTQ2BzA2op7q0zl4BSQyopYaLLA8/+Pp0mQPM8LaLP78/mM4BIUcLzTqFl98Lz/a7+/LoqMaLp9q9Sn4rkOqgqhcdp78SmI8BpLzS4OagWFprSk4/8yLo4ULopF+LS9JBbPGf4AP7bF2rSh8gPlpd4HanTMJLS3agSSyf4AnaRgpB4S+9p/qgzSNFc7qFz0qBSI8nzSngQr4rSe+fprpdqUaLpwqM+l4Bl1Jb+M/fkn4rS9J9p3qgcAGMi7qM86+B4Qzp+EaLpV8aTmzDzQPFpcaFDhcDSkpFSyLo4mag8oy0zA8g+8aLEA2b87LFSe+9pfw/8SPB8iLrSk4fL9p7Q/wob7pLSb+7Pl80mA+S4m8nSn4o4Iy0mSngb7LDS9Lf+08/pS8dp7c7ZE87+gpdqhagYQPDDAwBSAqg4y8M8Fa/zPpBk6cg8S+dmS8pSl47YQ4DbSLAmOqAbrnfSQy/4AyfQ6qA+YJgSQ408A8ob7GLSeJgSdpdzh8M87+rSb+7+npdzBanSmq9Sl4b+QzLEA8opFLFYM4Mm1pdzDagY3yrS9pdHU+9l3PDS98/bM4r+QzLzFanTt8pSM4ezjnpQFJjuI8nkda/4QyezAPdp78Dkc4M+QPApAy7b7pF4r+gP9pFbAP7mi4FSiJ7PA8DRAP7pFq9+c49bQcFkApMm7+LSkafp38gbPaL+N8nkDN7+fLozpagW7q7YM4FcFcSSYanYz8FS9+gPl//8S+f49q9SP8BpDpdzAanT8prDAynlt4gzIagYbJrSb4d+hGdHAwbqROaHVHdWEH0iTP/c9P/DE+0rA+jIj2erIH0iINsQhP/rjwjQ1J7QTGnIjKc==",
+      "x-t": "1794300364000",
+      "x-b3-traceid": "50e83f11196132b4",
+      "x-xray-traceid": "d0e251627067213573d006361a0924dc"
+    },
+    "POST note/move": {
+      "x-s": "XYS_2UQhPsHCH0c1PUhMHjIj2erjwjQhyoPTqBPT49pjHjIj2eHjwjQgynEDJ74AHjIj2ePjwjQTJdPIPAZlg94aGLTlLjR/PMiE+fYk8pm9qemk8rWlnLh6+nTawepn4f4x2bSxqLWUy0pP+FDF8ec6nomt8n+zzAQILgS8+npsySq3G9QSL0bD208/nnbnppme+/Qy+FT+aBbn/9pF+nzaagbDzFSLJAmY2S8D8MzpG9MwPLpE4FqUGA8nnBb6qn8+c9EIqMQCLDkcpnbLP9learT/Jfznnfl0yLLIaSQQyAmOarEaLSz+G7zd+/pw8nLI+7Yf4nMcGLEfnfVFGjHVHdWFH0ijJ9Qx8n+FHdF=",
+      "x-s-common": "2UQAPsHC+aIjqArjwjHjNsQhPsHCH0rjNsQhPaHCH0c1PUhMHjIj2eHjwjQgynEDJ74AHjIj2ePjwjQhyoPTqBPT49pjHjIj2ecjwjHFN0W9N0ZjNsQh+aHCH0bYPBHhwBPl8eQSP9GFPeLl+0H7PAWFw/pY+fH7GAYDwnLI80bYPfHAGAzD+nL9804YwBHEGAmDHjIj2eGjwjHjNsQh+UHCHjHVHdWhH0ija/PhqDYD87+xJ7mdag8Sq9zn494QcUT6aLpPJLQy+nLApd4G/B4BprShLA+jqg4bqD8S8gYDPBp3Jf+m2DMBnnEl4BYQyrkSzB8+zrTM4bQQPFTAnnRUpFYc4r4UGSGILeSg8DSkN9pgGA8SngbF2pbmqbmQPA4Sy9Ma+SbPtApQy/8A8BE68p+fqpSHqg4VPdbF+LHIzBRQ2sTczFzkN7+n4BTQ2BzA2op7q0zl4BSQyopYaLLA8/+Pp0mQPM8LaLP78/mM4BIUcLzTqFl98Lz/a7+/LoqMaLp9q9Sn4rkOqgqhcdp78SmI8BpLzS4OagWFprSk4/8yLo4ULopF+LS9JBbPGf4AP7bF2rSh8gPlpd4HanTMJLS3agSSyf4AnaRgpB4S+9p/qgzSNFc7qFz0qBSI8nzSngQr4rSe+fprpdqUaLpwqM+l4Bl1Jb+M/fkn4rS9J9p3qgcAGMi7qM86+B4Qzp+EaLpV8aTmzDzQPFpcaFDhcDSkpFSyLo4mag8oy0zA8g+8aLEA2b87LFSe+9pfw/8SPB8iLrSk4fL9p7Q/wob7pLSb+7Pl80mA+S4m8nSn4o4Iy0mSngb7LDS9Lf+08/pS8dp7c7ZE87+gpdqhagYQPDDAwBSAqg4y8M8Fa/zPpBk6cg8S+dmS8pSl47YQ4DbSLAmOqAbrnfSQy/4AyfQ6qA+YJgSQ408A8ob7GLSeJgSdpdzh8M87+rSb+7+npdzBanSmq9Sl4b+QzLEA8opFLFYM4Mm1pdzDagY3yrS9pdHU+9l3PDS98/bM4r+QzLzFanTt8pSM4ezjnpQFJjuI8nkda/4QyezAPdp78Dkc4M+QPApAy7b7pF4r+gP9pFbAP7mi4FSiJ7PA8DRAP7pFq9+c49bQcFkApMm7+LSkafp38gbPaL+N8nkDN7+fLozpagW7q7YM4FcFcSSYanYz8FS9+gPl//8S+f49q9SP8BpDpdzAanT8prDAynlt4gzIagYbJrSb4d+hGdHAwbqROaHVHdWEH0iTP/c9P/DE+0rA+jIj2erIH0iINsQhP/rjwjQ1J7QTGnIjKc==",
+      "x-t": "1794300364000",
+      "x-b3-traceid": "bb8ab26e4d454c39",
+      "x-xray-traceid": "d0e2516270583d2b2cebb170e9b22911"
+    }
+  }
+}
