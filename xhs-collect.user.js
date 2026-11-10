@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         小红书收藏批量归类
 // @namespace    local.xhs.picker
-// @version      1.5.1
+// @version      1.5.2
 // @description  收藏页勾选笔记，用官方接口批量归入指定专辑
 // @match        https://www.xiaohongshu.com/*
 // @grant        none
@@ -2756,7 +2756,7 @@
     "transform:rotate(-45deg) scale(0);transition:transform .16s;margin-top:-3px}",
     ".xhs-pick.on{background:#ff2e4d;border-color:#ff2e4d}",
     ".xhs-pick.on::after{transform:rotate(-45deg) scale(1)}",
-    ".xhs-note-done{opacity:.42}",
+    ".xhs-note-done{box-shadow:inset 0 0 0 2px #ff2e4d !important}",
     ".xhs-board-tag{position:absolute;left:8px;top:8px;z-index:8;background:#fff;color:#111;border-radius:10px;",
     "padding:1px 8px;font-size:11px;line-height:18px;font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.2);",
     "max-width:calc(100% - 100px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}",
