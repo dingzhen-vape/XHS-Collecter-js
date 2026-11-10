@@ -4,6 +4,8 @@ import { signMainApi } from "./signing.js";
 const HOST = "https://edith.xiaohongshu.com";
 const P_BOARDS = "/api/sns/web/v1/board/user";
 const P_MOVE = "/api/sns/web/v1/note/move";
+const P_COLLECT = "/api/sns/web/v1/note/collect";
+const P_UNCOLLECT = "/api/sns/web/v1/note/uncollect";
 
 const CFG = {
   CARD: "section.note-item",
@@ -19,6 +21,7 @@ const state = {
   running: false,
   cancel: false,
   favSeen: false,
+  recollect: false,
 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -85,6 +88,41 @@ async function fetchBoards() {
 
 function moveOne(noteId, boardId) {
   return api("POST", P_MOVE, null, { target_board_id: boardId, notes_id: noteId });
+}
+
+// 收藏列表按收藏时间倒序。接口没有「修改收藏时间」的能力，
+// 所以要让一篇笔记排到最前，只能取消收藏后再收一次。
+async function classifyOne(noteId, boardId, recollect) {
+  if (!recollect) {
+    await moveOne(noteId, boardId);
+    return;
+  }
+  try {
+    await api("POST", P_UNCOLLECT, null, { note_ids: noteId });
+  } catch (e) {
+    throw new Error("取消收藏失败，未做任何改动: " + e.message);
+  }
+  await sleep(300);
+  let redo = false;
+  let lastErr = "";
+  for (let i = 0; i < 3 && !redo; i++) {
+    try {
+      await api("POST", P_COLLECT, null, { note_id: noteId });
+      redo = true;
+    } catch (e) {
+      lastErr = e.message;
+      await sleep(500);
+    }
+  }
+  if (!redo) {
+    throw new Error("已取消收藏，但重新收藏失败，这篇现在不在收藏里，请手动收藏: " + lastErr);
+  }
+  await sleep(300);
+  try {
+    await moveOne(noteId, boardId);
+  } catch (e) {
+    throw new Error("已重新收藏，但移入目标专辑失败，笔记现在默认收藏夹里: " + e.message);
+  }
 }
 
 /* ---------------- 卡片上的复选框 ---------------- */
@@ -184,6 +222,8 @@ const UI_CSS = [
   ".x:hover{background:rgba(255,255,255,.2)}",
   ".bd{padding:10px 12px 12px}",
   ".lb{color:#888;font-size:12px;margin:0 0 4px}",
+  ".ck{display:flex;align-items:center;gap:6px;margin-top:9px;font-size:12px;color:#555;cursor:pointer;user-select:none}",
+  ".ck input{width:14px;height:14px;margin:0;flex:none;accent-color:#ff2e4d;cursor:pointer}",
   "select{width:100%;padding:7px 8px;border:1px solid #e3e3e3;border-radius:8px;font-size:13px;",
   "background:#fafafa;outline:none;color:#222}",
   "select:focus{border-color:#ff2e4d}",
@@ -223,6 +263,7 @@ function buildUI() {
         '<div class="lb">目标专辑</div>' +
         '<select class="board"><option value="">加载中…</option></select>' +
         '<div class="row"><button class="b reload">刷新专辑</button><button class="b test">自检</button></div>' +
+        '<label class="ck" title="先取消收藏再重新收藏，让这篇排到收藏列表最前面。注意：多一次请求，也更慢"><input type="checkbox" class="rc"><span>归类后重新收藏（置顶）</span></label>' +
         '<div class="row"><button class="b all">全选可见</button><button class="b clear">清空</button></div>' +
         '<div class="row"><button class="b p go">开始归类</button></div>' +
         '<div class="row"><button class="b stop" disabled>停止</button></div>' +
@@ -283,6 +324,15 @@ function buildUI() {
 
   elSel.addEventListener("change", () => {
     try { localStorage.setItem("xhs-picker-board", elSel.value); } catch (e) {}
+  });
+
+  const elRc = q(".rc");
+  try { state.recollect = localStorage.getItem("xhs-picker-recollect") === "1"; } catch (e) {}
+  elRc.checked = state.recollect;
+  elRc.addEventListener("change", () => {
+    state.recollect = elRc.checked;
+    try { localStorage.setItem("xhs-picker-recollect", elRc.checked ? "1" : "0"); } catch (e) {}
+    log(state.recollect ? "已开启重新收藏：归类时会先取消再收藏" : "已关闭重新收藏：只移动专辑", "inf");
   });
 
   /* ---------- 拖动与定位 ---------- */
@@ -419,18 +469,19 @@ function buildUI() {
     btnGo.disabled = true;
     btnStop.disabled = false;
     log("--- " + label + "：" + ids.length + " 篇 ---", "inf");
+    if (state.recollect) log("模式：重新收藏并置顶（每篇 3 个请求，会慢一些）", "inf");
     let ok = 0, fail = 0;
     for (let i = 0; i < ids.length; i++) {
       if (state.cancel) { log("已停止，剩余 " + (ids.length - i) + " 篇未处理", "inf"); break; }
       const nid = ids[i];
       try {
-        await moveOne(nid, boardId);
+        await classifyOne(nid, boardId, state.recollect);
         ok++;
         state.selected.delete(nid);
         state.done.add(nid);
         paint(nid);
         renderCount();
-        log((i + 1) + "/" + ids.length + " " + nid + " 已归类", "ok");
+        log((i + 1) + "/" + ids.length + " " + nid + (state.recollect ? " 已归类并置顶" : " 已归类"), "ok");
       } catch (e) {
         fail++;
         log((i + 1) + "/" + ids.length + " " + nid + " 失败: " + e.message, "er");
