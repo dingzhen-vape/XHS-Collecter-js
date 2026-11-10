@@ -120,7 +120,9 @@ async function loadBoardMap(pages) {
           map.set(id, arr);
           n++;
         }
-        if (!list.length) ui.log("· " + b.name + " 读到 0 篇，返回字段：" + Object.keys(d || {}).join(","), "er");
+        if (!list.length) {
+          ui.log("· " + b.name + " 首页为空（has_more=" + (d && d.has_more) + "，字段 " + Object.keys(d || {}).join(",") + "）", d && d.has_more ? "er" : "inf");
+        }
         cursor = (d && d.cursor) || "";
         if (!cursor || !list.length) break;
         await sleep(200);

@@ -2680,7 +2680,9 @@
             map.set(id, arr);
             n++;
           }
-          if (!list.length) ui.log("\xB7 " + b.name + " \u8BFB\u5230 0 \u7BC7\uFF0C\u8FD4\u56DE\u5B57\u6BB5\uFF1A" + Object.keys(d || {}).join(","), "er");
+          if (!list.length) {
+            ui.log("\xB7 " + b.name + " \u9996\u9875\u4E3A\u7A7A\uFF08has_more=" + (d && d.has_more) + "\uFF0C\u5B57\u6BB5 " + Object.keys(d || {}).join(",") + "\uFF09", d && d.has_more ? "er" : "inf");
+          }
           cursor = d && d.cursor || "";
           if (!cursor || !list.length) break;
           await sleep(200);
