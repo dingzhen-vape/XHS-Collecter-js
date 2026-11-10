@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         小红书收藏批量归类
 // @namespace    local.xhs.picker
-// @version      1.3.0
+// @version      1.3.1
 // @description  收藏页勾选笔记，用官方接口批量归入指定专辑
 // @match        https://www.xiaohongshu.com/*
 // @grant        none
@@ -2582,7 +2582,8 @@
   var CFG = {
     CARD: "section.note-item",
     BOARD_NUM: 30,
-    BOARD_PAGES: 2,
+    BOARD_MAX_PAGES: 30,
+    TAG_DELAY: 200,
     DELAY: 600
   };
   var state = {
@@ -2654,23 +2655,31 @@
     const d = await api("GET", P_BOARDS, { user_id: uid, num: CFG.BOARD_NUM, page: 1 });
     return (d && d.boards || []).map((b) => ({ id: b.id, name: b.name }));
   }
+  var ID_RE = /^[0-9a-f]{24}$/;
   function itemNoteId(n) {
     if (!n) return null;
-    return n.note_id || n.id || n.note_card && n.note_card.note_id || null;
+    const cand = [n.note_id, n.note_card && n.note_card.note_id, n.noteId, n.id];
+    for (const v of cand) if (typeof v === "string" && ID_RE.test(v)) return v;
+    return null;
   }
-  async function loadBoardMap(pages) {
+  async function loadBoardMap(maxPages) {
     if (state.tagging) return;
+    const cap = maxPages || CFG.BOARD_MAX_PAGES;
     state.tagging = true;
-    const cap = pages || CFG.BOARD_PAGES;
     ui.log("\u8BC6\u522B\u4E13\u8F91\u4E2D\u2026");
     try {
       if (!state.boards.length) state.boards = await fetchBoards();
       const map = /* @__PURE__ */ new Map();
+      let totalPages = 0;
       for (const b of state.boards) {
         let cursor = "";
         let n = 0;
-        for (let p = 0; p < cap; p++) {
+        let used = 0;
+        let capped = false;
+        while (used < cap) {
           const d = await api("GET", P_BOARD_NOTE, { board_id: b.id, num: CFG.BOARD_NUM, cursor });
+          used++;
+          totalPages++;
           const list = d && (d.notes || d.items || d.note_list) || [];
           for (const it of list) {
             const id = itemNoteId(it);
@@ -2681,18 +2690,21 @@
             n++;
           }
           if (!list.length) {
-            ui.log("\xB7 " + b.name + " \u9996\u9875\u4E3A\u7A7A\uFF08has_more=" + (d && d.has_more) + "\uFF0C\u5B57\u6BB5 " + Object.keys(d || {}).join(",") + "\uFF09", d && d.has_more ? "er" : "inf");
+            if (used === 1) ui.log("\xB7 " + b.name + " \u9996\u9875\u4E3A\u7A7A\uFF08has_more=" + (d && d.has_more) + "\uFF09", d && d.has_more ? "er" : "inf");
+            break;
           }
           cursor = d && d.cursor || "";
-          if (!cursor || !list.length) break;
-          await sleep(200);
+          if (!d || d.has_more === false || !cursor) break;
+          capped = used >= cap;
+          await sleep(CFG.TAG_DELAY);
         }
-        ui.log("\xB7 " + b.name + "\uFF1A\u8BFB\u51FA " + n + " \u7BC7");
+        if (capped) ui.log("\xB7 " + b.name + " \u53EA\u8BFB\u5230 " + cap + " \u9875\uFF0C\u70B9\u300C\u8BC6\u522B\u4E13\u8F91\u300D\u53EF\u8BFB\u5168", "inf");
+        ui.log("\xB7 " + b.name + "\uFF1A" + n + " \u7BC7 / " + used + " \u9875");
       }
       state.boardMap = map;
       state.mapLoaded = true;
       state.cards.forEach((c, id) => paintTag(id));
-      ui.log("\u8BC6\u522B\u5B8C\u6210\uFF1A\u5DF2\u6709 " + map.size + " \u7BC7\u5F52\u7C7B", "ok");
+      ui.log("\u8BC6\u522B\u5B8C\u6210\uFF1A\u5DF2\u6709 " + map.size + " \u7BC7\u5F52\u7C7B\uFF0C\u5171\u8BF7\u6C42 " + totalPages + " \u9875", "ok");
     } catch (e) {
       ui.log("\u8BC6\u522B\u5931\u8D25\uFF1A" + e.message, "er");
     } finally {
@@ -2979,7 +2991,7 @@
       setPos(pos.x, pos.y);
       if (!state.mapLoaded && !state.tagging && !state.autoTagged) {
         state.autoTagged = true;
-        loadBoardMap(1);
+        loadBoardMap(3);
       }
     }
     function draggable(handle, onTap) {

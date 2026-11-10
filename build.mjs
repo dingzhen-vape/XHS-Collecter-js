@@ -13,7 +13,7 @@ const META = [
   "// ==UserScript==",
   "// @name         \u5c0f\u7ea2\u4e66\u6536\u85cf\u6279\u91cf\u5f52\u7c7b",
   "// @namespace    local.xhs.picker",
-  "// @version      1.3.0",
+  "// @version      1.3.1",
   "// @description  \u6536\u85cf\u9875\u52fe\u9009\u7b14\u8bb0\uff0c\u7528\u5b98\u65b9\u63a5\u53e3\u6279\u91cf\u5f52\u5165\u6307\u5b9a\u4e13\u8f91",
   "// @match        https://www.xiaohongshu.com/*",
   "// @grant        none",

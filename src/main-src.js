@@ -11,7 +11,8 @@ const P_BOARD_NOTE = "/api/sns/web/v1/board/note";
 const CFG = {
   CARD: "section.note-item",
   BOARD_NUM: 30,
-  BOARD_PAGES: 2,
+  BOARD_MAX_PAGES: 30,
+  TAG_DELAY: 200,
   DELAY: 600,
 };
 
@@ -92,25 +93,34 @@ async function fetchBoards() {
   return ((d && d.boards) || []).map((b) => ({ id: b.id, name: b.name }));
 }
 
+const ID_RE = /^[0-9a-f]{24}$/;
+
 function itemNoteId(n) {
   if (!n) return null;
-  return n.note_id || n.id || (n.note_card && n.note_card.note_id) || null;
+  const cand = [n.note_id, n.note_card && n.note_card.note_id, n.noteId, n.id];
+  for (const v of cand) if (typeof v === "string" && ID_RE.test(v)) return v;
+  return null;
 }
 
-// 反查每篇笔记被归到了哪些专辑：逐个专辑拉笔记列表，拼出 noteId -> [专辑名]
-async function loadBoardMap(pages) {
+// 反查每篇笔记归到了哪些专辑：逐个专辑翻完笔记列表，拼出 noteId -> [专辑名]
+async function loadBoardMap(maxPages) {
   if (state.tagging) return;
+  const cap = maxPages || CFG.BOARD_MAX_PAGES;
   state.tagging = true;
-  const cap = pages || CFG.BOARD_PAGES;
   ui.log("识别专辑中…");
   try {
     if (!state.boards.length) state.boards = await fetchBoards();
     const map = new Map();
+    let totalPages = 0;
     for (const b of state.boards) {
       let cursor = "";
       let n = 0;
-      for (let p = 0; p < cap; p++) {
+      let used = 0;
+      let capped = false;
+      while (used < cap) {
         const d = await api("GET", P_BOARD_NOTE, { board_id: b.id, num: CFG.BOARD_NUM, cursor });
+        used++;
+        totalPages++;
         const list = (d && (d.notes || d.items || d.note_list)) || [];
         for (const it of list) {
           const id = itemNoteId(it);
@@ -121,18 +131,21 @@ async function loadBoardMap(pages) {
           n++;
         }
         if (!list.length) {
-          ui.log("· " + b.name + " 首页为空（has_more=" + (d && d.has_more) + "，字段 " + Object.keys(d || {}).join(",") + "）", d && d.has_more ? "er" : "inf");
+          if (used === 1) ui.log("· " + b.name + " 首页为空（has_more=" + (d && d.has_more) + "）", d && d.has_more ? "er" : "inf");
+          break;
         }
         cursor = (d && d.cursor) || "";
-        if (!cursor || !list.length) break;
-        await sleep(200);
+        if (!d || d.has_more === false || !cursor) break;
+        capped = used >= cap;
+        await sleep(CFG.TAG_DELAY);
       }
-      ui.log("· " + b.name + "：读出 " + n + " 篇");
+      if (capped) ui.log("· " + b.name + " 只读到 " + cap + " 页，点「识别专辑」可读全", "inf");
+      ui.log("· " + b.name + "：" + n + " 篇 / " + used + " 页");
     }
     state.boardMap = map;
     state.mapLoaded = true;
     state.cards.forEach((c, id) => paintTag(id));
-    ui.log("识别完成：已有 " + map.size + " 篇归类", "ok");
+    ui.log("识别完成：已有 " + map.size + " 篇归类，共请求 " + totalPages + " 页", "ok");
   } catch (e) {
     ui.log("识别失败：" + e.message, "er");
   } finally {
@@ -452,7 +465,7 @@ function buildUI() {
     // 第一次展开时自动识别一次（每个专辑只读第一页，量小）；之后由「识别专辑」按钮手动触发
     if (!state.mapLoaded && !state.tagging && !state.autoTagged) {
       state.autoTagged = true;
-      loadBoardMap(1);
+      loadBoardMap(3);
     }
   }
 
