@@ -44,6 +44,7 @@ npm run build      # 只构建，产物 xhs-collect.user.js
 | 方法 | 路径 | body / query | 用途 |
 | --- | --- | --- | --- |
 | GET | `/api/sns/web/v1/board/user` | `user_id, num, page` | 专辑列表 |
+| GET | `/api/sns/web/v1/board/note` | `board_id, num, cursor` | 某个专辑里的笔记，卡片左上角标签靠它反查 |
 | GET | `/api/sns/web/v2/note/collect/page` | `num, cursor, user_id` | 收藏页列表（当前用不到，扩展时有用） |
 | POST | `/api/sns/web/v1/note/move` | `{target_board_id, notes_id}` | 移入专辑，核心接口 |
 | POST | `/api/sns/web/v1/note/collect` | `{note_id}` | 收藏，收进默认收藏夹 |
@@ -80,6 +81,8 @@ signMainApi(method, uri, cookies, params, payload, timestamp, signLocation)
 - 收藏页 URL 形如 `/user/profile/{uid}?tab=fav&subTab=note`；点开笔记会盖弹窗并把 URL 改成 `/explore/{id}`，页面内容不变，所以别只看 URL 判断「是不是收藏页」
 - 勾选框是 `div.xhs-pick` 不是 `<input>`：原生控件被站点全局样式污染，封面又被 `<a>` 覆盖。用 CSS `::after` 画勾，click 捕获阶段 `stopPropagation` 防跳转
 - 侧边栏在 Shadow DOM（`#xhs-picker-host`）里，隔离站点样式；拖动只绑 `.hd`，否则会吞掉下拉框和按钮
+- 专辑标签 `div.xhs-board-tag` 贴在卡片左上角，数据来自 `loadBoardMap()`：逐个专辑翻 `board/note` 直到 `has_more === false`，拼出 `noteId -> [专辑名]`。翻页上限 `CFG.BOARD_MAX_PAGES`，自动扫描只读 3 页，按钮读全
+- 星标 `div.xhs-star` 在卡片右下角。按住向右拖 12px 弹出专辑列表（另一个 Shadow DOM：`#xhs-quick-host`），松手命中哪项就归哪。**没有**用 `setPointerCapture`，否则 `elementFromPoint` 命中不到菜单项；改成 document 级 pointermove + `shadowRoot.elementFromPoint()` 自己做命中测试
 
 ## 改动的标准流程
 

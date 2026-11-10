@@ -205,6 +205,12 @@ const CARD_CSS = [
   ".xhs-pick.on{background:#ff2e4d;border-color:#ff2e4d}",
   ".xhs-pick.on::after{transform:rotate(-45deg) scale(1)}",
   ".xhs-note-done{opacity:.42}",  ".xhs-board-tag{position:absolute;left:8px;top:8px;z-index:8;background:#fff;color:#111;border-radius:10px;",  "padding:1px 8px;font-size:11px;line-height:18px;font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.2);",  "max-width:calc(100% - 100px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}",
+  ".xhs-star{position:absolute;right:8px;bottom:34px;width:26px;height:26px;border-radius:50%;box-sizing:border-box;",
+  "background:rgba(255,255,255,.94);color:#ff2e4d;z-index:9;cursor:grab;display:flex;align-items:center;",
+  "justify-content:center;font-size:14px;line-height:1;box-shadow:0 1px 6px rgba(0,0,0,.25);",
+  "user-select:none;touch-action:none;transition:transform .15s,background .15s}",
+  ".xhs-star:hover{transform:scale(1.1)}",
+  ".xhs-star.on{background:#ff2e4d;color:#fff}",
 ].join("");
 
 function injectCardCss() {
@@ -269,6 +275,14 @@ function decorate(card) {
   }, true);
   box.addEventListener("mousedown", (e) => e.stopPropagation(), true);
   card.appendChild(box);
+  const star = document.createElement("div");
+  star.className = "xhs-star";
+  star.title = "按住向右拖，选一个专辑放进去";
+  star.textContent = "\u2605";
+  star.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+  star.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); }, true);
+  star.addEventListener("pointerdown", (e) => onStarDown(e, star, id), true);
+  card.appendChild(star);
   paint(id);
 }
 
@@ -285,6 +299,143 @@ function favContext() {
   if (sp.get("tab") === "fav") return true;
   const t = document.querySelector(".reds-tab-item.active.sub-tab-list");
   return !!(t && /收藏/.test(t.textContent));
+}
+
+/* ---------------- 星标：按住向右拖，选专辑 ---------------- */
+
+const QUICK_CSS = [
+  ":host{all:initial}",
+  ".q{position:fixed;z-index:2147483002;min-width:140px;max-width:240px;max-height:60vh;overflow:auto;",
+  "padding:6px;background:rgba(255,255,255,.98);border-radius:12px;",
+  "box-shadow:0 8px 28px rgba(0,0,0,.24);font:13px/1.4 -apple-system,'PingFang SC',sans-serif;color:#222;",
+  "opacity:0;transform:translateX(-8px);transition:opacity .12s,transform .12s;pointer-events:auto}",
+  ".q.show{opacity:1;transform:none}",
+  ".it{padding:7px 10px;border-radius:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}",
+  ".it.hi{background:#ff2e4d;color:#fff}",
+  ".em{padding:7px 10px;color:#999}",
+].join("");
+
+const quick = { host: null, root: null, box: null, hi: null, open: false, noteId: null, boardId: null };
+
+function ensureQuick() {
+  if (quick.host) return;
+  const host = document.createElement("div");
+  host.id = "xhs-quick-host";
+  host.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;z-index:2147483002;pointer-events:none";
+  const root = host.attachShadow({ mode: "open" });
+  const st = document.createElement("style");
+  st.textContent = QUICK_CSS;
+  root.appendChild(st);
+  const box = document.createElement("div");
+  box.className = "q";
+  root.appendChild(box);
+  document.documentElement.appendChild(host);
+  quick.host = host;
+  quick.root = root;
+  quick.box = box;
+}
+
+function openQuick(rect) {
+  ensureQuick();
+  const box = quick.box;
+  box.innerHTML = "";
+  if (!state.boards.length) {
+    const em = document.createElement("div");
+    em.className = "em";
+    em.textContent = "专辑还没读出来…";
+    box.appendChild(em);
+  }
+  for (const b of state.boards) {
+    const it = document.createElement("div");
+    it.className = "it";
+    it.setAttribute("data-bid", b.id);
+    it.textContent = b.name;
+    box.appendChild(it);
+  }
+  box.style.top = "0px";
+  box.style.left = "0px";
+  box.classList.add("show");
+  quick.open = true;
+  const h = Math.min(box.offsetHeight || 200, innerHeight - 16);
+  const top = Math.max(8, Math.min(rect.top + rect.height / 2 - h / 2, innerHeight - 8 - h));
+  const left = Math.max(8, Math.min(rect.right + 10, innerWidth - 8 - (box.offsetWidth || 160)));
+  box.style.top = Math.round(top) + "px";
+  box.style.left = Math.round(left) + "px";
+}
+
+function closeQuick() {
+  if (!quick.box) return;
+  quick.box.classList.remove("show");
+  quick.box.innerHTML = "";
+  quick.hi = null;
+  quick.open = false;
+  quick.boardId = null;
+}
+
+function hitQuick(x, y) {
+  if (!quick.open || !quick.root) return null;
+  const el = quick.root.elementFromPoint(x, y);
+  return el && el.closest ? el.closest("[data-bid]") : null;
+}
+
+function onStarDown(e, star, noteId) {
+  if (e.button !== 0 || state.running) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (!state.boards.length) {
+    fetchBoards().then((b) => { state.boards = b; }).catch(() => {});
+  }
+  const rect = star.getBoundingClientRect();
+  const sx = e.clientX;
+  let opened = false;
+  quick.noteId = noteId;
+  quick.boardId = null;
+  star.classList.add("on");
+
+  const move = (ev) => {
+    if (!opened) {
+      if (ev.clientX - sx <= 12) return;
+      opened = true;
+      openQuick(rect);
+    }
+    const it = hitQuick(ev.clientX, ev.clientY);
+    if (quick.hi === it) return;
+    if (quick.hi) quick.hi.classList.remove("hi");
+    if (it) it.classList.add("hi");
+    quick.hi = it;
+    quick.boardId = it ? it.getAttribute("data-bid") : null;
+  };
+
+  const up = () => {
+    document.removeEventListener("pointermove", move, true);
+    document.removeEventListener("pointerup", up, true);
+    document.removeEventListener("pointercancel", up, true);
+    star.classList.remove("on");
+    const bid = opened ? quick.boardId : null;
+    closeQuick();
+    if (bid) quickMove(noteId, bid);
+  };
+
+  document.addEventListener("pointermove", move, true);
+  document.addEventListener("pointerup", up, true);
+  document.addEventListener("pointercancel", up, true);
+}
+
+async function quickMove(noteId, boardId) {
+  const b = state.boards.find((x) => x.id === boardId);
+  const name = b ? b.name : boardId;
+  ui.log("快捷归类 " + noteId + " → " + name + " …", "inf");
+  try {
+    await classifyOne(noteId, boardId, state.recollect);
+    state.selected.delete(noteId);
+    state.done.add(noteId);
+    state.boardMap.set(noteId, [name]);
+    paint(noteId);
+    ui.renderCount();
+    ui.log("快捷归类 " + noteId + " → " + name + " 完成", "ok");
+  } catch (err) {
+    ui.log("快捷归类失败：" + err.message, "er");
+  }
 }
 
 /* ---------------- 侧边栏 ---------------- */
