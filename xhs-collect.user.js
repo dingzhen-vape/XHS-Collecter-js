@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         小红书收藏批量归类
 // @namespace    local.xhs.picker
-// @version      1.2.0
+// @version      1.3.0
 // @description  收藏页勾选笔记，用官方接口批量归入指定专辑
 // @match        https://www.xiaohongshu.com/*
 // @grant        none
@@ -2578,9 +2578,11 @@
   var P_MOVE = "/api/sns/web/v1/note/move";
   var P_COLLECT = "/api/sns/web/v1/note/collect";
   var P_UNCOLLECT = "/api/sns/web/v1/note/uncollect";
+  var P_BOARD_NOTE = "/api/sns/web/v1/board/note";
   var CFG = {
     CARD: "section.note-item",
     BOARD_NUM: 30,
+    BOARD_PAGES: 2,
     DELAY: 600
   };
   var state = {
@@ -2588,6 +2590,10 @@
     done: /* @__PURE__ */ new Set(),
     cards: /* @__PURE__ */ new Map(),
     boards: [],
+    boardMap: /* @__PURE__ */ new Map(),
+    mapLoaded: false,
+    autoTagged: false,
+    tagging: false,
     running: false,
     cancel: false,
     favSeen: false,
@@ -2648,6 +2654,49 @@
     const d = await api("GET", P_BOARDS, { user_id: uid, num: CFG.BOARD_NUM, page: 1 });
     return (d && d.boards || []).map((b) => ({ id: b.id, name: b.name }));
   }
+  function itemNoteId(n) {
+    if (!n) return null;
+    return n.note_id || n.id || n.note_card && n.note_card.note_id || null;
+  }
+  async function loadBoardMap(pages) {
+    if (state.tagging) return;
+    state.tagging = true;
+    const cap = pages || CFG.BOARD_PAGES;
+    ui.log("\u8BC6\u522B\u4E13\u8F91\u4E2D\u2026");
+    try {
+      if (!state.boards.length) state.boards = await fetchBoards();
+      const map = /* @__PURE__ */ new Map();
+      for (const b of state.boards) {
+        let cursor = "";
+        let n = 0;
+        for (let p = 0; p < cap; p++) {
+          const d = await api("GET", P_BOARD_NOTE, { board_id: b.id, num: CFG.BOARD_NUM, cursor });
+          const list = d && (d.notes || d.items || d.note_list) || [];
+          for (const it of list) {
+            const id = itemNoteId(it);
+            if (!id) continue;
+            const arr = map.get(id) || [];
+            if (arr.indexOf(b.name) < 0) arr.push(b.name);
+            map.set(id, arr);
+            n++;
+          }
+          if (!list.length) ui.log("\xB7 " + b.name + " \u8BFB\u5230 0 \u7BC7\uFF0C\u8FD4\u56DE\u5B57\u6BB5\uFF1A" + Object.keys(d || {}).join(","), "er");
+          cursor = d && d.cursor || "";
+          if (!cursor || !list.length) break;
+          await sleep(200);
+        }
+        ui.log("\xB7 " + b.name + "\uFF1A\u8BFB\u51FA " + n + " \u7BC7");
+      }
+      state.boardMap = map;
+      state.mapLoaded = true;
+      state.cards.forEach((c, id) => paintTag(id));
+      ui.log("\u8BC6\u522B\u5B8C\u6210\uFF1A\u5DF2\u6709 " + map.size + " \u7BC7\u5F52\u7C7B", "ok");
+    } catch (e) {
+      ui.log("\u8BC6\u522B\u5931\u8D25\uFF1A" + e.message, "er");
+    } finally {
+      state.tagging = false;
+    }
+  }
   function moveOne(noteId, boardId) {
     return api("POST", P_MOVE, null, { target_board_id: boardId, notes_id: noteId });
   }
@@ -2693,7 +2742,10 @@
     "transform:rotate(-45deg) scale(0);transition:transform .16s;margin-top:-3px}",
     ".xhs-pick.on{background:#ff2e4d;border-color:#ff2e4d}",
     ".xhs-pick.on::after{transform:rotate(-45deg) scale(1)}",
-    ".xhs-note-done{opacity:.42}"
+    ".xhs-note-done{opacity:.42}",
+    ".xhs-board-tag{position:absolute;left:8px;top:8px;z-index:8;background:#fff;color:#111;border-radius:10px;",
+    "padding:1px 8px;font-size:11px;line-height:18px;font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.2);",
+    "max-width:calc(100% - 100px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}"
   ].join("");
   function injectCardCss() {
     if (document.getElementById("xhs-pick-css")) return;
@@ -2708,6 +2760,27 @@
     const box = card.querySelector(":scope > .xhs-pick");
     if (box) box.classList.toggle("on", state.selected.has(id));
     card.classList.toggle("xhs-note-done", state.done.has(id));
+    paintTag(id);
+  }
+  function paintTag(id) {
+    const card = state.cards.get(id);
+    if (!card) return;
+    const names = state.boardMap.get(id);
+    let el = card.querySelector(":scope > .xhs-board-tag");
+    if (!names || !names.length) {
+      if (el) el.remove();
+      return;
+    }
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "xhs-board-tag";
+      card.appendChild(el);
+    }
+    const t = names.join(" \xB7 ");
+    if (el.textContent !== t) {
+      el.textContent = t;
+      el.title = "\u5DF2\u5F52\u7C7B\uFF1A" + t;
+    }
   }
   function toggle(id) {
     if (state.selected.has(id)) state.selected.delete(id);
@@ -2802,7 +2875,7 @@
     sr.appendChild(st);
     const wrap = document.createElement("div");
     wrap.className = "wrap";
-    wrap.innerHTML = '<button class="tab" title="\u6279\u91CF\u5F52\u7C7B">\u2605<b>0</b></button><div class="panel"><div class="hd"><b>\u6279\u91CF\u5F52\u7C7B</b><span class="n">0</span><button class="x" title="\u6536\u8D77">\u2015</button></div><div class="bd"><div class="lb">\u76EE\u6807\u4E13\u8F91</div><select class="board"><option value="">\u52A0\u8F7D\u4E2D\u2026</option></select><div class="row"><button class="b reload">\u5237\u65B0\u4E13\u8F91</button><button class="b test">\u81EA\u68C0</button></div><label class="ck" title="\u5148\u53D6\u6D88\u6536\u85CF\u518D\u91CD\u65B0\u6536\u85CF\uFF0C\u8BA9\u8FD9\u7BC7\u6392\u5230\u6536\u85CF\u5217\u8868\u6700\u524D\u9762\u3002\u6CE8\u610F\uFF1A\u591A\u4E00\u6B21\u8BF7\u6C42\uFF0C\u4E5F\u66F4\u6162"><input type="checkbox" class="rc"><span>\u5F52\u7C7B\u540E\u91CD\u65B0\u6536\u85CF\uFF08\u7F6E\u9876\uFF09</span></label><div class="row"><button class="b all">\u5168\u9009\u53EF\u89C1</button><button class="b clear">\u6E05\u7A7A</button></div><div class="row"><button class="b p go">\u5F00\u59CB\u5F52\u7C7B</button></div><div class="row"><button class="b stop" disabled>\u505C\u6B62</button></div><div class="bar"><i></i></div><div class="lg"></div></div></div>';
+    wrap.innerHTML = '<button class="tab" title="\u6279\u91CF\u5F52\u7C7B">\u2605<b>0</b></button><div class="panel"><div class="hd"><b>\u6279\u91CF\u5F52\u7C7B</b><span class="n">0</span><button class="x" title="\u6536\u8D77">\u2015</button></div><div class="bd"><div class="lb">\u76EE\u6807\u4E13\u8F91</div><select class="board"><option value="">\u52A0\u8F7D\u4E2D\u2026</option></select><div class="row"><button class="b reload">\u5237\u65B0\u4E13\u8F91</button><button class="b test">\u81EA\u68C0</button></div><div class="row"><button class="b tag">\u8BC6\u522B\u4E13\u8F91</button></div><label class="ck" title="\u5148\u53D6\u6D88\u6536\u85CF\u518D\u91CD\u65B0\u6536\u85CF\uFF0C\u8BA9\u8FD9\u7BC7\u6392\u5230\u6536\u85CF\u5217\u8868\u6700\u524D\u9762\u3002\u6CE8\u610F\uFF1A\u591A\u4E00\u6B21\u8BF7\u6C42\uFF0C\u4E5F\u66F4\u6162"><input type="checkbox" class="rc"><span>\u5F52\u7C7B\u540E\u91CD\u65B0\u6536\u85CF\uFF08\u7F6E\u9876\uFF09</span></label><div class="row"><button class="b all">\u5168\u9009\u53EF\u89C1</button><button class="b clear">\u6E05\u7A7A</button></div><div class="row"><button class="b p go">\u5F00\u59CB\u5F52\u7C7B</button></div><div class="row"><button class="b stop" disabled>\u505C\u6B62</button></div><div class="bar"><i></i></div><div class="lg"></div></div></div>';
     sr.appendChild(wrap);
     const q = (s) => wrap.querySelector(s);
     const elPanel = q(".panel");
@@ -2902,6 +2975,10 @@
       elPanel.classList.remove("hide");
       elTab.classList.remove("show");
       setPos(pos.x, pos.y);
+      if (!state.mapLoaded && !state.tagging && !state.autoTagged) {
+        state.autoTagged = true;
+        loadBoardMap(1);
+      }
     }
     function draggable(handle, onTap) {
       let sx = 0, sy = 0, ox = 0, oy = 0, active = false, moved = false;
@@ -2956,6 +3033,7 @@
       }
     }
     q(".reload").addEventListener("click", () => loadBoards(false));
+    q(".tag").addEventListener("click", () => loadBoardMap());
     q(".test").addEventListener("click", async () => {
       log("--- \u81EA\u68C0 ---", "inf");
       const a1 = cookie("a1");
@@ -3020,6 +3098,8 @@
           ok++;
           state.selected.delete(nid);
           state.done.add(nid);
+          const op = elSel.options[elSel.selectedIndex];
+          if (op && op.textContent) state.boardMap.set(nid, [op.textContent]);
           paint(nid);
           renderCount();
           log(i + 1 + "/" + ids.length + " " + nid + (state.recollect ? " \u5DF2\u5F52\u7C7B\u5E76\u7F6E\u9876" : " \u5DF2\u5F52\u7C7B"), "ok");

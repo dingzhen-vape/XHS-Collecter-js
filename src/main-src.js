@@ -6,10 +6,12 @@ const P_BOARDS = "/api/sns/web/v1/board/user";
 const P_MOVE = "/api/sns/web/v1/note/move";
 const P_COLLECT = "/api/sns/web/v1/note/collect";
 const P_UNCOLLECT = "/api/sns/web/v1/note/uncollect";
+const P_BOARD_NOTE = "/api/sns/web/v1/board/note";
 
 const CFG = {
   CARD: "section.note-item",
   BOARD_NUM: 30,
+  BOARD_PAGES: 2,
   DELAY: 600,
 };
 
@@ -18,6 +20,10 @@ const state = {
   done: new Set(),
   cards: new Map(),
   boards: [],
+  boardMap: new Map(),
+  mapLoaded: false,
+  autoTagged: false,
+  tagging: false,
   running: false,
   cancel: false,
   favSeen: false,
@@ -86,6 +92,52 @@ async function fetchBoards() {
   return ((d && d.boards) || []).map((b) => ({ id: b.id, name: b.name }));
 }
 
+function itemNoteId(n) {
+  if (!n) return null;
+  return n.note_id || n.id || (n.note_card && n.note_card.note_id) || null;
+}
+
+// 反查每篇笔记被归到了哪些专辑：逐个专辑拉笔记列表，拼出 noteId -> [专辑名]
+async function loadBoardMap(pages) {
+  if (state.tagging) return;
+  state.tagging = true;
+  const cap = pages || CFG.BOARD_PAGES;
+  ui.log("识别专辑中…");
+  try {
+    if (!state.boards.length) state.boards = await fetchBoards();
+    const map = new Map();
+    for (const b of state.boards) {
+      let cursor = "";
+      let n = 0;
+      for (let p = 0; p < cap; p++) {
+        const d = await api("GET", P_BOARD_NOTE, { board_id: b.id, num: CFG.BOARD_NUM, cursor });
+        const list = (d && (d.notes || d.items || d.note_list)) || [];
+        for (const it of list) {
+          const id = itemNoteId(it);
+          if (!id) continue;
+          const arr = map.get(id) || [];
+          if (arr.indexOf(b.name) < 0) arr.push(b.name);
+          map.set(id, arr);
+          n++;
+        }
+        if (!list.length) ui.log("· " + b.name + " 读到 0 篇，返回字段：" + Object.keys(d || {}).join(","), "er");
+        cursor = (d && d.cursor) || "";
+        if (!cursor || !list.length) break;
+        await sleep(200);
+      }
+      ui.log("· " + b.name + "：读出 " + n + " 篇");
+    }
+    state.boardMap = map;
+    state.mapLoaded = true;
+    state.cards.forEach((c, id) => paintTag(id));
+    ui.log("识别完成：已有 " + map.size + " 篇归类", "ok");
+  } catch (e) {
+    ui.log("识别失败：" + e.message, "er");
+  } finally {
+    state.tagging = false;
+  }
+}
+
 function moveOne(noteId, boardId) {
   return api("POST", P_MOVE, null, { target_board_id: boardId, notes_id: noteId });
 }
@@ -137,7 +189,7 @@ const CARD_CSS = [
   "transform:rotate(-45deg) scale(0);transition:transform .16s;margin-top:-3px}",
   ".xhs-pick.on{background:#ff2e4d;border-color:#ff2e4d}",
   ".xhs-pick.on::after{transform:rotate(-45deg) scale(1)}",
-  ".xhs-note-done{opacity:.42}",
+  ".xhs-note-done{opacity:.42}",  ".xhs-board-tag{position:absolute;left:8px;top:8px;z-index:8;background:#fff;color:#111;border-radius:10px;",  "padding:1px 8px;font-size:11px;line-height:18px;font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.2);",  "max-width:calc(100% - 100px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}",
 ].join("");
 
 function injectCardCss() {
@@ -154,6 +206,29 @@ function paint(id) {
   const box = card.querySelector(":scope > .xhs-pick");
   if (box) box.classList.toggle("on", state.selected.has(id));
   card.classList.toggle("xhs-note-done", state.done.has(id));
+  paintTag(id);
+}
+
+// 卡片左上角的专辑名角标：白底黑字圆角，内容为这篇归属的专辑
+function paintTag(id) {
+  const card = state.cards.get(id);
+  if (!card) return;
+  const names = state.boardMap.get(id);
+  let el = card.querySelector(":scope > .xhs-board-tag");
+  if (!names || !names.length) {
+    if (el) el.remove();
+    return;
+  }
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "xhs-board-tag";
+    card.appendChild(el);
+  }
+  const t = names.join(" · ");
+  if (el.textContent !== t) {
+    el.textContent = t;
+    el.title = "已归类：" + t;
+  }
 }
 
 function toggle(id) {
@@ -263,6 +338,7 @@ function buildUI() {
         '<div class="lb">目标专辑</div>' +
         '<select class="board"><option value="">加载中…</option></select>' +
         '<div class="row"><button class="b reload">刷新专辑</button><button class="b test">自检</button></div>' +
+        '<div class="row"><button class="b tag">识别专辑</button></div>' +
         '<label class="ck" title="先取消收藏再重新收藏，让这篇排到收藏列表最前面。注意：多一次请求，也更慢"><input type="checkbox" class="rc"><span>归类后重新收藏（置顶）</span></label>' +
         '<div class="row"><button class="b all">全选可见</button><button class="b clear">清空</button></div>' +
         '<div class="row"><button class="b p go">开始归类</button></div>' +
@@ -371,6 +447,11 @@ function buildUI() {
     elPanel.classList.remove("hide");
     elTab.classList.remove("show");
     setPos(pos.x, pos.y);
+    // 第一次展开时自动识别一次（每个专辑只读第一页，量小）；之后由「识别专辑」按钮手动触发
+    if (!state.mapLoaded && !state.tagging && !state.autoTagged) {
+      state.autoTagged = true;
+      loadBoardMap(1);
+    }
   }
 
   function draggable(handle, onTap) {
@@ -422,6 +503,7 @@ function buildUI() {
     }
   }
   q(".reload").addEventListener("click", () => loadBoards(false));
+  q(".tag").addEventListener("click", () => loadBoardMap());
 
   q(".test").addEventListener("click", async () => {
     log("--- 自检 ---", "inf");
@@ -479,6 +561,8 @@ function buildUI() {
         ok++;
         state.selected.delete(nid);
         state.done.add(nid);
+        const op = elSel.options[elSel.selectedIndex];
+        if (op && op.textContent) state.boardMap.set(nid, [op.textContent]);
         paint(nid);
         renderCount();
         log((i + 1) + "/" + ids.length + " " + nid + (state.recollect ? " 已归类并置顶" : " 已归类"), "ok");
