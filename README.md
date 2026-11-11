@@ -64,6 +64,10 @@
 ├── xhs-collect.user.js   构建产物（未压缩），安装的就是这个
 ├── build.mjs             构建脚本
 ├── package.json
+├── probe                 浏览器 Console 用的排查脚本，不参与构建
+│   ├── dom.js            dump 卡片 DOM 结构
+│   ├── net.js            抓接口请求体
+│   └── headers.js        抓真实请求头（签名头）
 ├── scripts
 │   ├── check.mjs          构建 + 元数据自检
 │   ├── verify-sign.mjs    签名回归
@@ -74,7 +78,6 @@
     ├── crypto-shim.js    node:crypto 的浏览器替身
     ├── md5.js            纯 JS MD5
     ├── fingerprint-data.js  签名用的指纹常量表
-    ├── buffer-shim.js    Buffer 兼容（旧入口用）
     └── inject-buffer.js  esbuild --inject 的注入点
 ```
 
@@ -95,6 +98,19 @@ npm run build
 npm run verify     # 构建 + 元数据检查 + 签名回归，改完代码先跑这个
 ```
 
+## 排查工具（probe/）
+
+三个脚本都是**粘到浏览器 Console 里跑**的，不参与构建，也不用安装。小红书改版、接口报错、标签不对时，用它们取真实数据。
+
+| 文件 | 抓什么 | 用法 |
+| --- | --- | --- |
+| `probe/dom.js` | 卡片选择器命中数、第一张卡片 `outerHTML`、卡片内 `a[href]`、class 去重、hover 是否新增元素 | 收藏页粘贴即跑，约 1 秒出结果 |
+| `probe/net.js` | `fetch` / XHR 发出的 `/api/sns/web/` 请求：method、url、body | 粘贴 → 操作一次 → 敲 `__xhsNet()` |
+| `probe/headers.js` | 同样请求的完整请求头，重点 `X-s`、`X-t`、`X-S-Common`、两个 traceid | 粘贴 → 操作一次 → 敲 `__xhsHeaders()` |
+
+`net.js` 和 `headers.js` 会 hook 全局 `fetch` 与 `XMLHttpRequest`，只在当前页面有效，刷新即失效。两个同时装也能用，各记各的。抓到的 JSON 都会尝试复制到剪贴板。
+
+判定规则：`X-s` 应当以 `XYS_` 开头。出现 `XYW_` 说明请求走了页面自带的旧签名函数，接口会返回 `300011`。
 ## 已知限制
 
 - 归类是移动不是复制，没有撤销，选错专辑只能手动移回来

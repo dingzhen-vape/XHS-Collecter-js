@@ -31,6 +31,9 @@ npm run build      # 只构建，产物 xhs-collect.user.js
 | `xhs-collect.user.js` | 产物，未压缩，别手改 |
 | `scripts/check.mjs` | 构建 + 语法 + 元数据 + 版本一致性 |
 | `scripts/verify-sign.mjs` | 钉死随机源后比对 `scripts/golden.json` |
+| `probe/dom.js` | 浏览器 Console 用：dump 卡片 DOM 结构 |
+| `probe/net.js` | 浏览器 Console 用：抓接口请求体 |
+| `probe/headers.js` | 浏览器 Console 用：抓真实请求头（签名头） |
 
 ## 硬约束
 
@@ -82,11 +85,28 @@ signMainApi(method, uri, cookies, params, payload, timestamp, signLocation)
 - 收藏页 URL 形如 `/user/profile/{uid}?tab=fav&subTab=note`；点开笔记会盖弹窗并把 URL 改成 `/explore/{id}`，页面内容不变，所以别只看 URL 判断「是不是收藏页」
 - 勾选框是 `div.xhs-pick` 不是 `<input>`：原生控件被站点全局样式污染，封面又被 `<a>` 覆盖。用 CSS `::after` 画勾，click 捕获阶段 `stopPropagation` 防跳转
 - 侧边栏在 Shadow DOM（`#xhs-picker-host`）里，隔离站点样式；拖动只绑 `.hd`，否则会吞掉下拉框和按钮
-- 专辑标签 `div.xhs-board-tag` 贴在卡片左上角，数据来自 `loadBoardMap()`：逐个专辑翻 `board/note` 直到 `has_more === false`，拼出 `noteId -> [专辑名]`。翻页上限 `CFG.BOARD_MAX_PAGES`，自动扫描只读 3 页，按钮读全
+- 专辑标签 `div.xhs-board-tag` 贴在卡片左上角，数据来自 `loadBoardMap()`：逐个专辑翻 `board/note` 直到 `has_more === false`，拼出 `noteId -> [专辑名]`。单专辑翻页上限 `CFG.BOARD_MAX_PAGES`（30 页 / 900 篇）；进收藏页后自动全量跑一次（`state.autoTagged` 保证每页只跑一次），「识别专辑」按钮可手动重跑
 - 星标单击 = `starCollect()` → `POST note/collect`（默认收藏动作），不碰专辑；拖动 >12px 才弹菜单，位移 >4px 即视为拖动、松手不收藏。两个阈值分开是为了避免手抖误触
 - 星标 `div.xhs-star` 是 `.like-wrapper` 的第一个子节点（心形图标左边）。别改成 footer 的兄弟节点：footer 用 flex/`space-between` 排布，插成兄弟会被挤到离点赞很远；塞进 `.like-wrapper` 才保证紧贴。找不到 `.like-wrapper` 才退回绝对定位（`.xhs-star.abs`，右下角）
 - 按住星标向右拖 12px 弹出专辑列表（另一个 Shadow DOM：`#xhs-quick-host`），松手命中哪项就归哪。**没有**用 `setPointerCapture`，否则 `elementFromPoint` 命中不到菜单项；改成 document 级 pointermove + `shadowRoot.elementFromPoint()` 自己做命中测试
 - `scan()` 里第一张卡片出现后 600ms 自动跑一次 `loadBoardMap()`（`state.autoTagged` 保证每次页面加载只跑一次），不用等展开面板
+
+## 排查工具（probe/）
+
+三个脚本都**直接粘到浏览器 Console**，不是 node 脚本，不参与构建，也没被 `check.mjs` 检查。改版、接口报错、标签对不上时先跑它们，别靠猜。
+
+| 文件 | 输出 | 触发方式 |
+| --- | --- | --- |
+| `probe/dom.js` | 候选选择器命中数、第一张卡片 `outerHTML`（压空白截 3000）、卡片内全部 `a[href]`、class 去重、hover 700ms 后的增量元素 | 粘贴即跑，自带异步等待 |
+| `probe/net.js` | `/api/sns/web/` 请求的 kind/method/url/body，`console.table` + JSON | 粘贴后操作一次，敲 `__xhsNet()`；`__xhsNetClear()` 清空 |
+| `probe/headers.js` | 同样请求的完整头，重点打印 `x-s` / `x-t` / `x-s-common` / `x-b3-traceid` / `x-xray-traceid`，并判断两条 `X-S-Common` 是否相同 | 粘贴后操作一次，敲 `__xhsHeaders()`；`__xhsHeadersClear()` 清空 |
+
+要点：
+
+- `probe/net.js` 和 `probe/headers.js` 都改写全局 `fetch` 与 `XMLHttpRequest`，只在当前页面生效，刷新恢复。同时装两个也能工作，各记各的数组。
+- `headers.js` 内部按小写比对键名：真实请求里可能是 `X-S-Common`、`x-s-common`、`X-s` 混用，历史上的误判就是查了错的大小写。
+- 判定签名是否正常：`x-s` 必须 `XYS_` 开头；出现 `XYW_` 说明走了页面自带的旧签名，接口必回 `300011`。
+- 抓到的新字段、新 URL 要回写到本文档「接口」与「页面 DOM 事实」两节，否则下一个接手的人还得再抓一次。
 
 ## 改动的标准流程
 
@@ -105,16 +125,17 @@ signMainApi(method, uri, cookies, params, payload, timestamp, signLocation)
 - 字符串里有英文撇号（比如报错原文）时，那一行改用双引号，否则单引号字符串会被截断，报 `Expected ',', got 'ident'`。
 - `Buffer` 用 esbuild `--inject:src/inject-buffer.js` 注入，**不要**写 `globalThis.Buffer = ...`，那会污染页面。
 - 这台机器 PowerShell 禁用了脚本执行，`npm` 会报 `npm.ps1 因为在此系统上禁止运行脚本`，用 `npm.cmd`。
-- 沙箱里 git 推送需要凭据时 `credential.helper` 起不来（报 sh.exe couldn't create signal pipe），推送交给用户在本机终端做。仓库配置了 `http.proxy=http://127.0.0.1:7897` 和 `http.sslBackend=openssl`，因为这台机器 schannel 直连 GitHub 会报 `SEC_E_NO_CREDENTIALS`。
+- `workspace-write` 沙箱下 git 推送会失败：`credential.helper` 起不来（报 `sh.exe: couldn't create signal pipe, Win32 error 5` + `could not read Username`），但 `ls-remote` 同时正常，说明不是网络也不是凭据。切到 `danger-full-access` 后同一命令直接成功。仓库配置了 `http.proxy=http://127.0.0.1:7897` 与 `http.sslBackend=openssl`（本机 schannel 直连 GitHub 报 `SEC_E_NO_CREDENTIALS`）；远端仓库已从 `XHS-Collecter-js` 改名为 `XHS-Collector-js`，origin 已同步。
 
 ## 排障
 
 | 症状 | 先查 |
 | --- | --- |
-| `code=300011` | 签名。跑 `npm run check:sign`，再确认 `@grant none`、a1 取到了 |
+| `code=300011` | 签名。跑 `npm run check:sign`，用 `probe/headers.js` 看真实请求的 `x-s` 前缀；再确认 `@grant none`、a1 取到了 |
 | 取不到 a1 | 没登录，或 cookie 被浏览器策略挡了 |
 | 专辑下拉是空的 | 点「自检」看报错。`user_id` 从 URL 拿，必须站在自己的收藏页 |
-| 勾选框不出现 | 不在收藏页（判断逻辑见 `favContext()`），或卡片结构变了 |
+| 勾选框不出现 | 不在收藏页（判断逻辑见 `favContext()`），或卡片结构变了；跑 `probe/dom.js` 对比选择器 |
+| 标签帖错专辑 / 篇数不对 | 跑 `probe/net.js` 抓 `board/note` 的返回，确认 `notes` 字段与分页参数 |
 | 归类成功但列表没变 | 前端有缓存，刷新页面看 |
 
 ## 还没做的
