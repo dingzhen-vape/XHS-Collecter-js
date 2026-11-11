@@ -204,7 +204,10 @@ const CARD_CSS = [
   "transform:rotate(-45deg) scale(0);transition:transform .16s;margin-top:-3px}",
   ".xhs-pick.on{background:#ff2e4d;border-color:#ff2e4d}",
   ".xhs-pick.on::after{transform:rotate(-45deg) scale(1)}",
-  ".xhs-note-done{box-shadow:inset 0 0 0 2px #ff2e4d !important}",  ".xhs-board-tag{position:absolute;left:8px;top:8px;z-index:8;background:#fff;color:#111;border-radius:10px;",  "padding:1px 8px;font-size:11px;line-height:18px;font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.2);",  "max-width:calc(100% - 100px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}",
+  ".xhs-note-done{box-shadow:inset 0 0 0 2px #ff2e4d !important}",
+  ".xhs-board-tag{position:absolute;left:8px;top:8px;z-index:8;background:#fff;color:#111;border-radius:10px;",
+  "padding:1px 8px;font-size:11px;line-height:18px;font-weight:600;box-shadow:0 1px 6px rgba(0,0,0,.2);",
+  "max-width:calc(100% - 100px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}",
   ".xhs-star{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;",
   "width:20px;height:20px;margin:0 10px 0 0;flex:0 0 auto;border-radius:50%;color:#ff2e4d;background:transparent;",
   "position:relative;z-index:3;cursor:grab;user-select:none;touch-action:none;",
@@ -212,6 +215,9 @@ const CARD_CSS = [
   ".xhs-star svg{width:15px;height:15px;display:block}",
   ".xhs-star:hover{transform:scale(1.12)}",
   ".xhs-star.on{transform:scale(1.2)}",
+  ".xhs-star.busy{opacity:.45;pointer-events:none}",
+  ".xhs-star.ok{color:#0a8f45}",
+  ".xhs-star.er{color:#d0021b}",
   ".xhs-star.abs{position:absolute;right:8px;bottom:34px;z-index:9;background:rgba(255,255,255,.94);",
   "box-shadow:0 1px 6px rgba(0,0,0,.25)}",
   ".xhs-star.abs.on{background:#ff2e4d;color:#fff}",
@@ -416,12 +422,15 @@ function onStarDown(e, star, card) {
   }
   const rect = star.getBoundingClientRect();
   const sx = e.clientX;
+  const sy = e.clientY;
   let opened = false;
+  let moved = false;
   quick.noteId = noteId;
   quick.boardId = null;
   star.classList.add("on");
 
   const move = (ev) => {
+    if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 4) moved = true;
     if (!opened) {
       if (ev.clientX - sx <= 12) return;
       opened = true;
@@ -443,6 +452,7 @@ function onStarDown(e, star, card) {
     const bid = opened ? quick.boardId : null;
     closeQuick();
     if (bid) quickMove(noteId, bid);
+    else if (!opened && !moved) starCollect(noteId, star);
   };
 
   document.addEventListener("pointermove", move, true);
@@ -464,6 +474,30 @@ async function quickMove(noteId, boardId) {
     ui.log("快捷归类 " + noteId + " → " + name + " 完成", "ok");
   } catch (err) {
     ui.log("快捷归类失败：" + err.message, "er");
+  }
+}
+
+// 单击星标：走小红书默认的收藏动作（收进默认收藏夹），不碰专辑归属。
+// 已收藏的笔记再收一次，服务端通常会拒绝，这里把错误如实抛出来。
+async function starCollect(noteId, star) {
+  if (state.running) return;
+  star.classList.add("busy");
+  ui.log("收藏 " + noteId + " …", "inf");
+  try {
+    await api("POST", P_COLLECT, null, { note_id: noteId });
+    star.classList.add("ok");
+    setTimeout(() => star.classList.remove("ok"), 900);
+    const names = state.boardMap.get(noteId);
+    const where = names && names.length ? "（已在专辑 " + names.join(" · ") + "）" : "";
+    ui.log("收藏 " + noteId + " 完成" + where + "，刷新页面后可见", "ok");
+  } catch (e) {
+    star.classList.add("er");
+    setTimeout(() => star.classList.remove("er"), 900);
+    const names = state.boardMap.get(noteId);
+    const hint = names && names.length ? "，这篇已在专辑 " + names.join(" · ") + " 里" : "";
+    ui.log("收藏 " + noteId + " 失败：" + e.message + hint, "er");
+  } finally {
+    star.classList.remove("busy");
   }
 }
 

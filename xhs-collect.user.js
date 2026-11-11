@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         小红书收藏批量归类
 // @namespace    local.xhs.picker
-// @version      1.5.4
+// @version      1.5.5
 // @description  收藏页勾选笔记，用官方接口批量归入指定专辑
 // @match        https://www.xiaohongshu.com/*
 // @license      MIT; https://opensource.org/licenses/MIT
@@ -2768,6 +2768,9 @@
     ".xhs-star svg{width:15px;height:15px;display:block}",
     ".xhs-star:hover{transform:scale(1.12)}",
     ".xhs-star.on{transform:scale(1.2)}",
+    ".xhs-star.busy{opacity:.45;pointer-events:none}",
+    ".xhs-star.ok{color:#0a8f45}",
+    ".xhs-star.er{color:#d0021b}",
     ".xhs-star.abs{position:absolute;right:8px;bottom:34px;z-index:9;background:rgba(255,255,255,.94);",
     "box-shadow:0 1px 6px rgba(0,0,0,.25)}",
     ".xhs-star.abs.on{background:#ff2e4d;color:#fff}"
@@ -2962,11 +2965,14 @@
     }
     const rect = star.getBoundingClientRect();
     const sx = e.clientX;
+    const sy = e.clientY;
     let opened = false;
+    let moved = false;
     quick.noteId = noteId;
     quick.boardId = null;
     star.classList.add("on");
     const move = (ev) => {
+      if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 4) moved = true;
       if (!opened) {
         if (ev.clientX - sx <= 12) return;
         opened = true;
@@ -2987,6 +2993,7 @@
       const bid = opened ? quick.boardId : null;
       closeQuick();
       if (bid) quickMove(noteId, bid);
+      else if (!opened && !moved) starCollect(noteId, star);
     };
     document.addEventListener("pointermove", move, true);
     document.addEventListener("pointerup", up, true);
@@ -3006,6 +3013,27 @@
       ui.log("\u5FEB\u6377\u5F52\u7C7B " + noteId + " \u2192 " + name + " \u5B8C\u6210", "ok");
     } catch (err) {
       ui.log("\u5FEB\u6377\u5F52\u7C7B\u5931\u8D25\uFF1A" + err.message, "er");
+    }
+  }
+  async function starCollect(noteId, star) {
+    if (state.running) return;
+    star.classList.add("busy");
+    ui.log("\u6536\u85CF " + noteId + " \u2026", "inf");
+    try {
+      await api("POST", P_COLLECT, null, { note_id: noteId });
+      star.classList.add("ok");
+      setTimeout(() => star.classList.remove("ok"), 900);
+      const names = state.boardMap.get(noteId);
+      const where = names && names.length ? "\uFF08\u5DF2\u5728\u4E13\u8F91 " + names.join(" \xB7 ") + "\uFF09" : "";
+      ui.log("\u6536\u85CF " + noteId + " \u5B8C\u6210" + where + "\uFF0C\u5237\u65B0\u9875\u9762\u540E\u53EF\u89C1", "ok");
+    } catch (e) {
+      star.classList.add("er");
+      setTimeout(() => star.classList.remove("er"), 900);
+      const names = state.boardMap.get(noteId);
+      const hint = names && names.length ? "\uFF0C\u8FD9\u7BC7\u5DF2\u5728\u4E13\u8F91 " + names.join(" \xB7 ") + " \u91CC" : "";
+      ui.log("\u6536\u85CF " + noteId + " \u5931\u8D25\uFF1A" + e.message + hint, "er");
+    } finally {
+      star.classList.remove("busy");
     }
   }
   var UI_CSS = [
