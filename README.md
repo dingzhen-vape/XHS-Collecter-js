@@ -103,6 +103,8 @@ npm run verify     # 构建 + 元数据检查 + 签名回归，改完代码先�
 ## 许可证
 
 MIT，见 [LICENSE](./LICENSE)。可以自由使用、修改、分发、商用，保留版权声明即可。
+
+脚本头里的写法是 `// @license MIT; https://opensource.org/licenses/MIT`：Tampermonkey 在脚本详情页会显示它，Greasy Fork 上传时也能识别。
 脚本用到的签名实现移植自 [@lucasygu/redbook](https://github.com/lucasygu/redbook)（MIT）。
 
 ## 免责

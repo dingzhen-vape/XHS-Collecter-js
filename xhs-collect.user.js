@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         小红书收藏批量归类
 // @namespace    local.xhs.picker
-// @version      1.5.3
+// @version      1.5.4
 // @description  收藏页勾选笔记，用官方接口批量归入指定专辑
 // @match        https://www.xiaohongshu.com/*
-// @license      MIT
+// @license      MIT; https://opensource.org/licenses/MIT
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==

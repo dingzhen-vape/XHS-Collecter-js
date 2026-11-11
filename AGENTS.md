@@ -38,6 +38,7 @@ npm run build      # 只构建，产物 xhs-collect.user.js
 2. **不手改产物**。改 `src/main-src.js`，然后 `npm run build`。
 3. **`@grant none` 不能动**。脚本要在页面主世界跑，用 `document.cookie` 和 `fetch` 带 cookie。
 4. **不引运行时依赖**。除了 buffer（打包进去），不加新包。
+5. **`@license` 行不能删**。写成 `MIT; https://opensource.org/licenses/MIT`：Tampermonkey 认 SPDX 标识符，Greasy Fork 认这个格式并会链到许可证全文。`scripts/check.mjs` 会在缺失时报错。
 
 ## 接口（全部打到 `https://edith.xiaohongshu.com`）
 

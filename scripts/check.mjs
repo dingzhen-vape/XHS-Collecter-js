@@ -30,12 +30,13 @@ try {
 const code = readFileSync(OUT, "utf8");
 
 // 3. 元数据
-const REQUIRED = ["==UserScript==", "@name", "@version", "@match", "@grant", "@run-at"];
+const REQUIRED = ["==UserScript==", "@name", "@version", "@match", "@license", "@grant", "@run-at"];
 for (const k of REQUIRED) {
   if (!code.includes(k)) fail("缺少元数据 " + k);
 }
 if (!/\/\/ @match\s+https:\/\/www\.xiaohongshu\.com\/\*/.test(code)) fail("@match 不是小红书域名");
 if (!/\/\/ @grant\s+none/.test(code)) fail("@grant 必须是 none，否则签名拿不到页面环境");
+if (!/\/\/ @license\s+MIT\b/.test(code)) fail("@license 必须是 MIT（SPDX 标识符）");
 
 // 4. 版本一致
 const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
