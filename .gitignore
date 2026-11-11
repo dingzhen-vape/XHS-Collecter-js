@@ -1,11 +1,7 @@
 node_modules/
+.pnpm-store/
+
+# 构建/校验过程的临时产物
 .tmp-verify/
 _build/
-.pnpm-store/
 *.log
-
-# 调试用的探针脚本，不发布
-xhs-probe*.js
-xhs-sign-test.js
-xhs-sign-test.user.js
-_ref-signing.js
