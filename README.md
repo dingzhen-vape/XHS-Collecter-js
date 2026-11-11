@@ -18,6 +18,8 @@
 
 1. 打开 [`xhs-collect.user.js`](./xhs-collect.user.js)，点 Raw，Tampermonkey 会自动弹出安装页
 2. 或者下载后拖进浏览器窗口
+### greasyfork
+[greasyfork](https://greasyfork.org/zh-CN/scripts/604729-%E5%B0%8F%E7%BA%A2%E4%B9%A6%E6%94%B6%E8%97%8F%E6%89%B9%E9%87%8F%E5%BD%92%E7%B1%BB)
 
 ## 使用
 
