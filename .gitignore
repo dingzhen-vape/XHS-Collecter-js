@@ -1,4 +1,5 @@
 node_modules/
+.tmp-verify/
 _build/
 .pnpm-store/
 *.log
